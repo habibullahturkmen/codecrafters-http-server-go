@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"net"
+	"strings"
 )
 
 func getHeaders(conn *net.Conn) ([]string, error) {
@@ -27,5 +28,16 @@ func handleGet(path string, httpVersion string) string {
 	if path == "/" {
 		return fmt.Sprintf("%v 200 OK\r\n\r\n", httpVersion)
 	}
+
+	if strings.HasPrefix(path, "/echo") {
+		content := strings.TrimPrefix(path, "/echo")
+
+		// If path is "/echo/abc", remove the "/"
+		if strings.HasPrefix(content, "/") {
+			content = content[1:]
+		}
+		return fmt.Sprintf("%s 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", httpVersion, len(content), content)
+	}
+
 	return fmt.Sprintf("%v 404 Not Found\r\n\r\n", httpVersion)
 }
