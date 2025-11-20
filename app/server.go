@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 )
 
 type Server struct {
@@ -17,6 +18,7 @@ func (s *Server) Listen() {
 		os.Exit(1)
 	}
 	s.listener = l
+	fmt.Println("Connection Established!")
 }
 
 func (s *Server) Accept() net.Conn {
@@ -40,14 +42,28 @@ func (s *Server) Close() {
 func (s *Server) Start() {
 	s.Listen()
 	defer s.Close()
-
 	conn := s.Accept()
 
-	_, err := conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+	// START: Handle Headers
+	headers, err := getHeaders(&conn)
 	if err != nil {
-		fmt.Println("Error accepting connection: ", err.Error())
+		fmt.Println("Error Reading Header Line: ", err.Error())
 		os.Exit(1)
 	}
+	requestLineHeader := strings.Fields(headers[0])
+	method, path, httpVersion := requestLineHeader[0], requestLineHeader[1], requestLineHeader[2]
+	// END: Handle Headers
 
-	fmt.Println("Connection Established!")
+	switch method {
+	case "GET":
+		response := handleGet(path, httpVersion)
+
+		_, err = conn.Write([]byte(response))
+		if err != nil {
+			fmt.Println("Error accepting connection: ", err.Error())
+			os.Exit(1)
+		}
+	case "POST":
+	}
+
 }
