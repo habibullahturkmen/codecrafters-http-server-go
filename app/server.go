@@ -1,10 +1,10 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"net"
 	"os"
-	"strings"
 )
 
 type Server struct {
@@ -45,19 +45,23 @@ func (s *Server) Start() {
 	conn := s.Accept()
 
 	// START: Handle Headers
-	headers, err := getHeaders(&conn)
+	reader := bufio.NewReader(conn)
+	method, path, httpVersion, err := getRequestLine(reader)
 	if err != nil {
-		fmt.Println("Error Reading Header Line: ", err.Error())
+		fmt.Println("Error Reading The Request Line: ", err.Error())
 		os.Exit(1)
 	}
-	requestLineHeader := strings.Fields(headers[0])
-	method, path, httpVersion := requestLineHeader[0], requestLineHeader[1], requestLineHeader[2]
+
+	headers, err := getHeaders(reader)
+	if err != nil {
+		fmt.Println("Error Reading The Headers: ", err.Error())
+		os.Exit(1)
+	}
 	// END: Handle Headers
 
 	switch method {
 	case "GET":
-		response := handleGet(path, httpVersion)
-
+		response := handleGet(path, httpVersion, headers)
 		_, err = conn.Write([]byte(response))
 		if err != nil {
 			fmt.Println("Error accepting connection: ", err.Error())
