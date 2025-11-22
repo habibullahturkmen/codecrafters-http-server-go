@@ -2,5 +2,5 @@ package main
 
 func main() {
 	s := Server{}
-	s.Start()
+	s.start()
 }

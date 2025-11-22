@@ -11,7 +11,15 @@ type Server struct {
 	listener net.Listener
 }
 
-func (s *Server) Listen() {
+type Request struct {
+	method      string
+	path        string
+	httpVersion string
+	headers     map[string]string
+	body        []uint8
+}
+
+func (s *Server) listen() {
 	l, err := net.Listen("tcp", "0.0.0.0:4221")
 	if err != nil {
 		fmt.Println("Failed to bind to port 4221")
@@ -21,7 +29,7 @@ func (s *Server) Listen() {
 	fmt.Println("Connection Established!")
 }
 
-func (s *Server) Accept() net.Conn {
+func (s *Server) accept() net.Conn {
 	conn, err := s.listener.Accept()
 	if err != nil {
 		fmt.Println("Error accepting connection: ", err.Error())
@@ -31,7 +39,7 @@ func (s *Server) Accept() net.Conn {
 	return conn
 }
 
-func (s *Server) Close() {
+func (s *Server) close() {
 	err := s.listener.Close()
 	if err != nil {
 		fmt.Println("Failed while closing the connection: ", err.Error())
@@ -39,12 +47,11 @@ func (s *Server) Close() {
 	}
 }
 
-func (s *Server) Start() {
-	s.Listen()
-	defer s.Close()
+func (s *Server) start() {
+	s.listen()
+	defer s.close()
 	for {
-		conn := s.Accept()
-		//go s.HandleConnection(conn)
+		conn := s.accept()
 		go func(conn net.Conn) {
 			fmt.Println("New connection from:", conn.RemoteAddr())
 			reader := bufio.NewReader(conn)
@@ -63,9 +70,17 @@ func (s *Server) Start() {
 			}
 			// END: Handle Headers
 
+			req := Request{
+				method:      method,
+				path:        path,
+				httpVersion: httpVersion,
+				headers:     headers,
+				body:        nil,
+			}
+
 			switch method {
 			case "GET":
-				response := handleGet(path, httpVersion, headers)
+				response := handleGet(req)
 				_, err = conn.Write([]byte(response))
 				if err != nil {
 					fmt.Println("Error accepting connection: ", err.Error())
