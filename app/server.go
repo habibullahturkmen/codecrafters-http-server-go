@@ -42,32 +42,37 @@ func (s *Server) Close() {
 func (s *Server) Start() {
 	s.Listen()
 	defer s.Close()
-	conn := s.Accept()
+	for {
+		conn := s.Accept()
+		//go s.HandleConnection(conn)
+		go func(conn net.Conn) {
+			fmt.Println("New connection from:", conn.RemoteAddr())
+			reader := bufio.NewReader(conn)
 
-	// START: Handle Headers
-	reader := bufio.NewReader(conn)
-	method, path, httpVersion, err := getRequestLine(reader)
-	if err != nil {
-		fmt.Println("Error Reading The Request Line: ", err.Error())
-		os.Exit(1)
+			// START: Handle Headers
+			method, path, httpVersion, err := getRequestLine(reader)
+			if err != nil {
+				fmt.Println("Error Reading The Request Line: ", err.Error())
+				os.Exit(1)
+			}
+
+			headers, err := getHeaders(reader)
+			if err != nil {
+				fmt.Println("Error Reading The Headers: ", err.Error())
+				os.Exit(1)
+			}
+			// END: Handle Headers
+
+			switch method {
+			case "GET":
+				response := handleGet(path, httpVersion, headers)
+				_, err = conn.Write([]byte(response))
+				if err != nil {
+					fmt.Println("Error accepting connection: ", err.Error())
+					os.Exit(1)
+				}
+			case "POST":
+			}
+		}(conn)
 	}
-
-	headers, err := getHeaders(reader)
-	if err != nil {
-		fmt.Println("Error Reading The Headers: ", err.Error())
-		os.Exit(1)
-	}
-	// END: Handle Headers
-
-	switch method {
-	case "GET":
-		response := handleGet(path, httpVersion, headers)
-		_, err = conn.Write([]byte(response))
-		if err != nil {
-			fmt.Println("Error accepting connection: ", err.Error())
-			os.Exit(1)
-		}
-	case "POST":
-	}
-
 }
