@@ -44,25 +44,25 @@ func getHeaders(reader *bufio.Reader) (map[string]string, error) {
 	return headers, nil
 }
 
-func handleGet(path string, httpVersion string, headers map[string]string) string {
-	if path == "/" {
-		return fmt.Sprintf("%v 200 OK\r\n\r\n", httpVersion)
+func handleGet(req Request) string {
+	if req.path == "/" {
+		return fmt.Sprintf("%v 200 OK\r\n\r\n", req.httpVersion)
 	}
 
-	if strings.HasPrefix(path, "/echo") {
-		content := strings.TrimPrefix(path, "/echo")
+	if strings.HasPrefix(req.path, "/echo") {
+		content := strings.TrimPrefix(req.path, "/echo")
 
 		// If path is "/echo/abc", remove the "/"
 		if strings.HasPrefix(content, "/") {
 			content = content[1:]
 		}
-		return fmt.Sprintf("%s 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", httpVersion, len(content), content)
+		return fmt.Sprintf("%s 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", req.httpVersion, len(content), content)
 	}
 
-	if strings.TrimRight(path, "/") == "/user-agent" {
-		userAgent := headers[userAgent]
-		return fmt.Sprintf("%s 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", httpVersion, len(userAgent), userAgent)
+	if strings.TrimRight(req.path, "/") == "/user-agent" {
+		userAgent := req.headers[userAgent]
+		return fmt.Sprintf("%s 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", req.httpVersion, len(userAgent), userAgent)
 	}
 
-	return fmt.Sprintf("%v 404 Not Found\r\n\r\n", httpVersion)
+	return fmt.Sprintf("%v 404 Not Found\r\n\r\n", req.httpVersion)
 }
