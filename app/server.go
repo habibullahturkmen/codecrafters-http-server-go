@@ -68,7 +68,6 @@ func (s *Server) start() {
 				fmt.Println("Error Reading The Headers: ", err.Error())
 				os.Exit(1)
 			}
-			// END: Handle Headers
 
 			req := Request{
 				method:      method,
@@ -77,6 +76,8 @@ func (s *Server) start() {
 				headers:     headers,
 				body:        nil,
 			}
+			
+			// END: Handle Headers
 
 			switch method {
 			case "GET":
