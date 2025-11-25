@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -44,7 +45,7 @@ func getHeaders(reader *bufio.Reader) (map[string]string, error) {
 	return headers, nil
 }
 
-func handleGet(req Request) string {
+func handleGet(req Request, dir string) string {
 	if req.path == "/" {
 		return fmt.Sprintf("%v 200 OK\r\n\r\n", req.httpVersion)
 	}
@@ -52,7 +53,6 @@ func handleGet(req Request) string {
 	if strings.HasPrefix(req.path, "/echo") {
 		content := strings.TrimPrefix(req.path, "/echo")
 
-		// If path is "/echo/abc", remove the "/"
 		if strings.HasPrefix(content, "/") {
 			content = content[1:]
 		}
@@ -62,6 +62,26 @@ func handleGet(req Request) string {
 	if strings.TrimRight(req.path, "/") == "/user-agent" {
 		userAgent := req.headers[userAgent]
 		return fmt.Sprintf("%s 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", req.httpVersion, len(userAgent), userAgent)
+	}
+
+	if strings.HasPrefix(req.path, "/files") {
+		fileName := strings.TrimPrefix(req.path, "/files")
+
+		if strings.HasPrefix(fileName, "/") {
+			fileName = fileName[1:]
+		}
+
+		if strings.HasSuffix(dir, "/") {
+			dir = dir[:len(dir)-1]
+		}
+
+		file, err := os.ReadFile(fmt.Sprintf("%s/%s", dir, fileName))
+		if err != nil {
+			fmt.Println("Failed reading file: ", err.Error())
+			os.Exit(1)
+		}
+
+		return fmt.Sprintf("%s 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s", req.httpVersion, len(string(file)), string(file))
 	}
 
 	return fmt.Sprintf("%v 404 Not Found\r\n\r\n", req.httpVersion)

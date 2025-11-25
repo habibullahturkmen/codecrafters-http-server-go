@@ -47,7 +47,7 @@ func (s *Server) close() {
 	}
 }
 
-func (s *Server) start() {
+func (s *Server) start(dir string) {
 	s.listen()
 	defer s.close()
 	for {
@@ -76,12 +76,11 @@ func (s *Server) start() {
 				headers:     headers,
 				body:        nil,
 			}
-			
 			// END: Handle Headers
 
 			switch method {
 			case "GET":
-				response := handleGet(req)
+				response := handleGet(req, dir)
 				_, err = conn.Write([]byte(response))
 				if err != nil {
 					fmt.Println("Error accepting connection: ", err.Error())
