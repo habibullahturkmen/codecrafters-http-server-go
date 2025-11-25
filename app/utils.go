@@ -73,6 +73,9 @@ func handleGet(req Request, dirName string) string {
 
 		file, err := os.ReadFile(fmt.Sprintf("%s/%s", dirName, fileName))
 		if err != nil {
+			if strings.Contains(err.Error(), "no such file or directory") {
+				return fmt.Sprintf("%v 404 Not Found\r\n\r\n", req.httpVersion)
+			}
 			fmt.Println("Failed reading file: ", err.Error())
 			os.Exit(1)
 		}
