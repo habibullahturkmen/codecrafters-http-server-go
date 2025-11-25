@@ -45,7 +45,7 @@ func getHeaders(reader *bufio.Reader) (map[string]string, error) {
 	return headers, nil
 }
 
-func handleGet(req Request, dir string) string {
+func handleGet(req Request, dirName string) string {
 	if req.path == "/" {
 		return fmt.Sprintf("%v 200 OK\r\n\r\n", req.httpVersion)
 	}
@@ -71,11 +71,7 @@ func handleGet(req Request, dir string) string {
 			fileName = fileName[1:]
 		}
 
-		if strings.HasSuffix(dir, "/") {
-			dir = dir[:len(dir)-1]
-		}
-
-		file, err := os.ReadFile(fmt.Sprintf("%s/%s", dir, fileName))
+		file, err := os.ReadFile(fmt.Sprintf("%s/%s", dirName, fileName))
 		if err != nil {
 			fmt.Println("Failed reading file: ", err.Error())
 			os.Exit(1)
@@ -85,4 +81,19 @@ func handleGet(req Request, dir string) string {
 	}
 
 	return fmt.Sprintf("%v 404 Not Found\r\n\r\n", req.httpVersion)
+}
+
+func getDirName(args []string, flag string) string {
+	var dir string
+	for i, arg := range args {
+		if arg == flag {
+			dir = args[i+1]
+		}
+	}
+
+	if strings.HasSuffix(dir, "/") {
+		dir = dir[:len(dir)-1]
+	}
+
+	return dir
 }

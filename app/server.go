@@ -47,7 +47,7 @@ func (s *Server) close() {
 	}
 }
 
-func (s *Server) start(dir string) {
+func (s *Server) start(dirName string) {
 	s.listen()
 	defer s.close()
 	for {
@@ -80,7 +80,7 @@ func (s *Server) start(dir string) {
 
 			switch method {
 			case "GET":
-				response := handleGet(req, dir)
+				response := handleGet(req, dirName)
 				_, err = conn.Write([]byte(response))
 				if err != nil {
 					fmt.Println("Error accepting connection: ", err.Error())
