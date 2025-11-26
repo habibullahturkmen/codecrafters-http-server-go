@@ -11,23 +11,17 @@ const (
 	userAgent = "User-Agent"
 )
 
-func getRequestLine(reader *bufio.Reader) (string, string, string, error) {
-	requestLineHeader, err := reader.ReadString('\n')
+func parseHTTPRequest(reader *bufio.Reader) ([]string, map[string]string, error) {
+	requestLine, err := reader.ReadString('\n')
 	if err != nil {
-		return "", "", "", fmt.Errorf("error Reading Header Line: %v", err.Error())
+		return nil, nil, fmt.Errorf("error reading the request line: %v", err.Error())
 	}
 
-	requestLineParts := strings.Split(strings.TrimSpace(requestLineHeader), " ")
-	// method, path, httpVersion, nil
-	return requestLineParts[0], requestLineParts[1], requestLineParts[2], nil
-}
-
-func getHeaders(reader *bufio.Reader) (map[string]string, error) {
 	headers := map[string]string{}
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
-			return map[string]string{}, fmt.Errorf("error Reading Header Line: %v", err.Error())
+			return nil, nil, fmt.Errorf("error reading the header: %v", err.Error())
 		}
 
 		if line == "\r\n" {
@@ -42,7 +36,7 @@ func getHeaders(reader *bufio.Reader) (map[string]string, error) {
 		}
 	}
 
-	return headers, nil
+	return strings.Split(strings.TrimRight(requestLine, "\r\n"), " "), headers, nil
 }
 
 func handleGet(req Request, dirName string) string {

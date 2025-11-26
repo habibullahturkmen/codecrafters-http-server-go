@@ -56,29 +56,21 @@ func (s *Server) start(dirName string) {
 			fmt.Println("New connection from:", conn.RemoteAddr())
 			reader := bufio.NewReader(conn)
 
-			// START: Handle Headers
-			method, path, httpVersion, err := getRequestLine(reader)
+			requestLine, headers, err := parseHTTPRequest(reader)
 			if err != nil {
-				fmt.Println("Error Reading The Request Line: ", err.Error())
-				os.Exit(1)
-			}
-
-			headers, err := getHeaders(reader)
-			if err != nil {
-				fmt.Println("Error Reading The Headers: ", err.Error())
+				fmt.Println("Error parsing the http request: ", err.Error())
 				os.Exit(1)
 			}
 
 			req := Request{
-				method:      method,
-				path:        path,
-				httpVersion: httpVersion,
+				method:      requestLine[0],
+				path:        requestLine[1],
+				httpVersion: requestLine[2],
 				headers:     headers,
 				body:        nil,
 			}
-			// END: Handle Headers
 
-			switch method {
+			switch req.method {
 			case "GET":
 				response := handleGet(req, dirName)
 				_, err = conn.Write([]byte(response))
