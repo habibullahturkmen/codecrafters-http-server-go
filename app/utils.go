@@ -3,7 +3,9 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -11,17 +13,17 @@ const (
 	userAgent = "User-Agent"
 )
 
-func parseHTTPRequest(reader *bufio.Reader) ([]string, map[string]string, error) {
+func parseHTTPRequest(reader *bufio.Reader) ([]string, map[string]string, []byte, error) {
 	requestLine, err := reader.ReadString('\n')
 	if err != nil {
-		return nil, nil, fmt.Errorf("error reading the request line: %v", err.Error())
+		return nil, nil, nil, fmt.Errorf("error reading the request line: %v", err.Error())
 	}
 
 	headers := map[string]string{}
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
-			return nil, nil, fmt.Errorf("error reading the header: %v", err.Error())
+			return nil, nil, nil, fmt.Errorf("error reading the header: %v", err.Error())
 		}
 
 		if line == "\r\n" {
@@ -36,7 +38,17 @@ func parseHTTPRequest(reader *bufio.Reader) ([]string, map[string]string, error)
 		}
 	}
 
-	return strings.Split(strings.TrimRight(requestLine, "\r\n"), " "), headers, nil
+	var body []byte
+	if contentLength, ok := headers["Content-Length"]; ok {
+		length, err := strconv.Atoi(contentLength)
+		body = make([]byte, length)
+		_, err = io.ReadFull(reader, body)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("error reading the body: %v", err.Error())
+		}
+	}
+
+	return strings.Split(strings.TrimRight(requestLine, "\r\n"), " "), headers, body, nil
 }
 
 func handleGet(req Request, dirName string) string {

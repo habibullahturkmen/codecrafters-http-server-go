@@ -56,7 +56,7 @@ func (s *Server) start(dirName string) {
 			fmt.Println("New connection from:", conn.RemoteAddr())
 			reader := bufio.NewReader(conn)
 
-			requestLine, headers, err := parseHTTPRequest(reader)
+			requestLine, headers, body, err := parseHTTPRequest(reader)
 			if err != nil {
 				fmt.Println("Error parsing the http request: ", err.Error())
 				os.Exit(1)
@@ -67,7 +67,7 @@ func (s *Server) start(dirName string) {
 				path:        requestLine[1],
 				httpVersion: requestLine[2],
 				headers:     headers,
-				body:        nil,
+				body:        body,
 			}
 
 			switch req.method {
