@@ -70,15 +70,17 @@ func (s *Server) start(dirName string) {
 				body:        body,
 			}
 
+			var response string
 			switch req.method {
 			case "GET":
-				response := handleGet(req, dirName)
-				_, err = conn.Write([]byte(response))
-				if err != nil {
-					fmt.Println("Error accepting connection: ", err.Error())
-					os.Exit(1)
-				}
+				response = handleGET(req, dirName)
 			case "POST":
+				response = handlePOST(req, dirName)
+			}
+			_, err = conn.Write([]byte(response))
+			if err != nil {
+				fmt.Println("Error accepting connection: ", err.Error())
+				os.Exit(1)
 			}
 		}(conn)
 	}

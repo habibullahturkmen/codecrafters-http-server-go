@@ -51,7 +51,7 @@ func parseHTTPRequest(reader *bufio.Reader) ([]string, map[string]string, []byte
 	return strings.Split(strings.TrimRight(requestLine, "\r\n"), " "), headers, body, nil
 }
 
-func handleGet(req Request, dirName string) string {
+func handleGET(req Request, dirName string) string {
 	if req.path == "/" {
 		return fmt.Sprintf("%v 200 OK\r\n\r\n", req.httpVersion)
 	}
@@ -89,6 +89,24 @@ func handleGet(req Request, dirName string) string {
 		return fmt.Sprintf("%s 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s", req.httpVersion, len(string(file)), string(file))
 	}
 
+	return fmt.Sprintf("%v 404 Not Found\r\n\r\n", req.httpVersion)
+}
+
+func handlePOST(req Request, dirName string) string {
+	if strings.HasPrefix(req.path, "/files") {
+		fileName := strings.TrimPrefix(req.path, "/files")
+
+		if strings.HasPrefix(fileName, "/") {
+			fileName = fileName[1:]
+		}
+
+		err := os.WriteFile(fmt.Sprintf("%s/%s", dirName, fileName), req.body, 0666)
+		if err != nil {
+			fmt.Println("Failed creating file: ", err.Error())
+		}
+
+		return fmt.Sprintf("%v 201 Created\r\n\r\n", req.httpVersion)
+	}
 	return fmt.Sprintf("%v 404 Not Found\r\n\r\n", req.httpVersion)
 }
 
