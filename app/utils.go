@@ -62,6 +62,11 @@ func handleGET(req Request, dirName string) string {
 		if strings.HasPrefix(content, "/") {
 			content = content[1:]
 		}
+
+		if req.headers["Accept-Encoding"] == "gzip" {
+			return fmt.Sprintf("%s 200 OK\r\nContent-Type: text/plain\r\nContent-Encoding: %s\r\nContent-Length: %d\r\n\r\n%s", req.httpVersion, req.headers["Accept-Encoding"], len(content), content)
+		}
+		
 		return fmt.Sprintf("%s 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", req.httpVersion, len(content), content)
 	}
 
