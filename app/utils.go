@@ -2,6 +2,8 @@ package main
 
 import (
 	"bufio"
+	"bytes"
+	"compress/gzip"
 	"fmt"
 	"io"
 	"os"
@@ -51,9 +53,13 @@ func parseHTTPRequest(reader *bufio.Reader) ([]string, map[string]string, []byte
 	return strings.Split(strings.TrimRight(requestLine, "\r\n"), " "), headers, body, nil
 }
 
-func handleGET(req Request, dirName string) string {
+func handleGET(req Request, dirName string) (string, string, error) {
+	var responseHeader string
+	var responseBody string
+
 	if req.path == "/" {
-		return fmt.Sprintf("%v 200 OK\r\n\r\n", req.httpVersion)
+		responseHeader = fmt.Sprintf("%v 200 OK\r\n\r\n", req.httpVersion)
+		return responseHeader, responseBody, nil
 	}
 
 	if strings.HasPrefix(req.path, "/echo") {
@@ -64,15 +70,30 @@ func handleGET(req Request, dirName string) string {
 		}
 
 		if strings.Contains(req.headers["Accept-Encoding"], "gzip") {
-			return fmt.Sprintf("%s 200 OK\r\nContent-Type: text/plain\r\nContent-Encoding: %s\r\nContent-Length: %d\r\n\r\n%s", req.httpVersion, "gzip", len(content), content)
+			var buf bytes.Buffer
+			gz := gzip.NewWriter(&buf)
+			_, err := gz.Write([]byte(content))
+			if err != nil {
+				return "", "", err
+			}
+			err = gz.Close()
+			if err != nil {
+				return "", "", err
+			}
+
+			responseHeader = fmt.Sprintf("%s 200 OK\r\nContent-Type: text/plain\r\nContent-Encoding: %s\r\nContent-Length: %d\r\n\r\n%s", req.httpVersion, "gzip", len(content), content)
+			responseBody = string(buf.Bytes())
+			return responseHeader, responseBody, nil
 		}
 
-		return fmt.Sprintf("%s 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", req.httpVersion, len(content), content)
+		responseHeader = fmt.Sprintf("%s 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", req.httpVersion, len(content), content)
+		return responseHeader, responseBody, nil
 	}
 
 	if strings.TrimRight(req.path, "/") == "/user-agent" {
 		userAgent := req.headers[userAgent]
-		return fmt.Sprintf("%s 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", req.httpVersion, len(userAgent), userAgent)
+		responseHeader = fmt.Sprintf("%s 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", req.httpVersion, len(userAgent), userAgent)
+		return responseHeader, responseBody, nil
 	}
 
 	if strings.HasPrefix(req.path, "/files") {
@@ -85,19 +106,22 @@ func handleGET(req Request, dirName string) string {
 		file, err := os.ReadFile(fmt.Sprintf("%s/%s", dirName, fileName))
 		if err != nil {
 			if strings.Contains(err.Error(), "no such file or directory") {
-				return fmt.Sprintf("%v 404 Not Found\r\n\r\n", req.httpVersion)
+				responseHeader = fmt.Sprintf("%v 404 Not Found\r\n\r\n", req.httpVersion)
+				return responseHeader, responseBody, nil
 			}
-			fmt.Println("Failed reading file: ", err.Error())
-			os.Exit(1)
+			return "", "", err
 		}
 
-		return fmt.Sprintf("%s 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s", req.httpVersion, len(string(file)), string(file))
+		responseHeader = fmt.Sprintf("%s 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s", req.httpVersion, len(string(file)), string(file))
+		return responseHeader, responseBody, nil
 	}
 
-	return fmt.Sprintf("%v 404 Not Found\r\n\r\n", req.httpVersion)
+	responseHeader = fmt.Sprintf("%v 404 Not Found\r\n\r\n", req.httpVersion)
+	return responseHeader, responseBody, nil
 }
 
-func handlePOST(req Request, dirName string) string {
+func handlePOST(req Request, dirName string) (string, error) {
+	var responseHeader string
 	if strings.HasPrefix(req.path, "/files") {
 		fileName := strings.TrimPrefix(req.path, "/files")
 
@@ -107,12 +131,14 @@ func handlePOST(req Request, dirName string) string {
 
 		err := os.WriteFile(fmt.Sprintf("%s/%s", dirName, fileName), req.body, 0666)
 		if err != nil {
-			fmt.Println("Failed creating file: ", err.Error())
+			return "", fmt.Errorf("failed creating file: %v", err.Error())
 		}
 
-		return fmt.Sprintf("%v 201 Created\r\n\r\n", req.httpVersion)
+		responseHeader = fmt.Sprintf("%v 201 Created\r\n\r\n", req.httpVersion)
+		return responseHeader, nil
 	}
-	return fmt.Sprintf("%v 404 Not Found\r\n\r\n", req.httpVersion)
+	responseHeader = fmt.Sprintf("%v 404 Not Found\r\n\r\n", req.httpVersion)
+	return responseHeader, nil
 }
 
 func getDirName(args []string, flag string) string {

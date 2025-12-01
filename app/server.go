@@ -50,10 +50,12 @@ func (s *Server) close() {
 func (s *Server) start(dirName string) {
 	s.listen()
 	defer s.close()
+
 	for {
 		conn := s.accept()
 		go func(conn net.Conn) {
 			fmt.Println("New connection from:", conn.RemoteAddr())
+			var responseHeader, responseBody string
 			reader := bufio.NewReader(conn)
 
 			requestLine, headers, body, err := parseHTTPRequest(reader)
@@ -70,17 +72,34 @@ func (s *Server) start(dirName string) {
 				body:        body,
 			}
 
-			var response string
 			switch req.method {
 			case "GET":
-				response = handleGET(req, dirName)
+				responseHeader, responseBody, err = handleGET(req, dirName)
+				if err != nil {
+					fmt.Println(err.Error())
+					os.Exit(1)
+				}
 			case "POST":
-				response = handlePOST(req, dirName)
+				responseHeader, err = handlePOST(req, dirName)
+				if err != nil {
+					fmt.Println(err.Error())
+					os.Exit(1)
+				}
 			}
-			_, err = conn.Write([]byte(response))
+
+			_, err = conn.Write([]byte(responseHeader))
 			if err != nil {
-				fmt.Println("Error accepting connection: ", err.Error())
+				fmt.Println(err.Error())
 				os.Exit(1)
+			}
+
+			if len(responseBody) > 0 {
+				fmt.Println("body len ", len(responseBody))
+				_, err := conn.Write([]byte(responseHeader))
+				if err != nil {
+					fmt.Println(err.Error())
+					os.Exit(1)
+				}
 			}
 		}(conn)
 	}
