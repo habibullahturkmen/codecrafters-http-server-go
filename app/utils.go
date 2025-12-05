@@ -12,7 +12,9 @@ import (
 )
 
 const (
-	userAgent = "User-Agent"
+	userAgent      = "User-Agent"
+	contentLength  = "Content-Length"
+	acceptEncoding = "Accept-Encoding"
 )
 
 func parseHTTPRequest(reader *bufio.Reader) ([]string, map[string]string, []byte, error) {
@@ -41,7 +43,7 @@ func parseHTTPRequest(reader *bufio.Reader) ([]string, map[string]string, []byte
 	}
 
 	var body []byte
-	if contentLength, ok := headers["Content-Length"]; ok {
+	if contentLength, ok := headers[contentLength]; ok {
 		length, err := strconv.Atoi(contentLength)
 		body = make([]byte, length)
 		_, err = io.ReadFull(reader, body)
@@ -53,9 +55,9 @@ func parseHTTPRequest(reader *bufio.Reader) ([]string, map[string]string, []byte
 	return strings.Split(strings.TrimRight(requestLine, "\r\n"), " "), headers, body, nil
 }
 
-func handleGET(req Request, dirName string) (string, string, error) {
+func handleGET(req Request, dirName string) (string, []byte, error) {
 	var responseHeader string
-	var responseBody string
+	var responseBody []byte
 
 	if req.path == "/" {
 		responseHeader = fmt.Sprintf("%v 200 OK\r\n\r\n", req.httpVersion)
@@ -69,20 +71,24 @@ func handleGET(req Request, dirName string) (string, string, error) {
 			content = content[1:]
 		}
 
-		if strings.Contains(req.headers["Accept-Encoding"], "gzip") {
+		acceptEncoding, ok := req.headers[acceptEncoding]
+		if ok && strings.Contains(acceptEncoding, "gzip") {
 			var buf bytes.Buffer
 			gz := gzip.NewWriter(&buf)
 			_, err := gz.Write([]byte(content))
 			if err != nil {
-				return "", "", err
-			}
-			err = gz.Close()
-			if err != nil {
-				return "", "", err
+				return "", nil, err
 			}
 
-			responseHeader = fmt.Sprintf("%s 200 OK\r\nContent-Type: text/plain\r\nContent-Encoding: %s\r\nContent-Length: %d\r\n\r\n%s", req.httpVersion, "gzip", len(content), content)
-			responseBody = string(buf.Bytes())
+			err = gz.Close()
+			if err != nil {
+				return "", nil, err
+			}
+
+			compressed := buf.Bytes()
+
+			responseHeader = fmt.Sprintf("%s 200 OK\r\nContent-Encoding: %s\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n", req.httpVersion, "gzip", len(compressed))
+			responseBody = compressed
 			return responseHeader, responseBody, nil
 		}
 
@@ -109,7 +115,7 @@ func handleGET(req Request, dirName string) (string, string, error) {
 				responseHeader = fmt.Sprintf("%v 404 Not Found\r\n\r\n", req.httpVersion)
 				return responseHeader, responseBody, nil
 			}
-			return "", "", err
+			return "", nil, err
 		}
 
 		responseHeader = fmt.Sprintf("%s 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s", req.httpVersion, len(string(file)), string(file))

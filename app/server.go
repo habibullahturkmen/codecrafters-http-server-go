@@ -55,7 +55,8 @@ func (s *Server) start(dirName string) {
 		conn := s.accept()
 		go func(conn net.Conn) {
 			fmt.Println("New connection from:", conn.RemoteAddr())
-			var responseHeader, responseBody string
+			var responseHeader string
+			var responseBody []byte
 			reader := bufio.NewReader(conn)
 
 			requestLine, headers, body, err := parseHTTPRequest(reader)
@@ -94,8 +95,7 @@ func (s *Server) start(dirName string) {
 			}
 
 			if len(responseBody) > 0 {
-				fmt.Println("body len ", len(responseBody))
-				_, err := conn.Write([]byte(responseHeader))
+				_, err := conn.Write(responseBody)
 				if err != nil {
 					fmt.Println(err.Error())
 					os.Exit(1)
