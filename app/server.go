@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 )
 
 type Server struct {
@@ -62,7 +63,7 @@ func (s *Server) start(dirName string) {
 			for {
 				requestLine, headers, body, err := parseHTTPRequest(reader)
 				if err != nil {
-					fmt.Println("Error parsing the http request: ", err)
+					fmt.Println(err)
 					return
 				}
 
@@ -102,6 +103,17 @@ func (s *Server) start(dirName string) {
 					return
 				}
 
+				connection, ok := headers["Connection"]
+				// Add Connection: keep-alive if client didn't request close
+				if !ok || strings.ToLower(connection) != "close" {
+					responseHeader = strings.Replace(responseHeader, "\r\n\r\n", "\r\nConnection: keep-alive\r\n\r\n", 1)
+				}
+
+				// Add Connection: close if client explicitly requested close
+				if ok && strings.ToLower(connection) == "close" {
+					responseHeader = strings.Replace(responseHeader, "\r\n\r\n", "\r\nConnection: close\r\n\r\n", 1)
+				}
+
 				// Write headers
 				_, err = conn.Write([]byte(responseHeader))
 				if err != nil {
@@ -116,6 +128,11 @@ func (s *Server) start(dirName string) {
 						fmt.Println("Error writing body:", err)
 						return
 					}
+				}
+
+				// Close connection if client explicitly requested
+				if ok && strings.ToLower(connection) == "close" {
+					return
 				}
 			}
 		}(conn)
