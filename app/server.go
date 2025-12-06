@@ -8,6 +8,7 @@ import (
 )
 
 type Server struct {
+	Address  string
 	listener net.Listener
 }
 
@@ -16,17 +17,17 @@ type Request struct {
 	path        string
 	httpVersion string
 	headers     map[string]string
-	body        []uint8
+	body        []byte
 }
 
 func (s *Server) listen() {
-	l, err := net.Listen("tcp", "0.0.0.0:4221")
+	l, err := net.Listen("tcp", s.Address)
 	if err != nil {
-		fmt.Println("Failed to bind to port 4221")
+		fmt.Println(fmt.Errorf("failed to bind to %s: %w", s.Address, err))
 		os.Exit(1)
 	}
 	s.listener = l
-	fmt.Println("Connection Established!")
+	fmt.Println("Server listening on", s.Address)
 }
 
 func (s *Server) accept() net.Conn {
@@ -54,51 +55,67 @@ func (s *Server) start(dirName string) {
 	for {
 		conn := s.accept()
 		go func(conn net.Conn) {
+			defer conn.Close()
 			fmt.Println("New connection from:", conn.RemoteAddr())
-			var responseHeader string
-			var responseBody []byte
+
 			reader := bufio.NewReader(conn)
-
-			requestLine, headers, body, err := parseHTTPRequest(reader)
-			if err != nil {
-				fmt.Println("Error parsing the http request: ", err.Error())
-				os.Exit(1)
-			}
-
-			req := Request{
-				method:      requestLine[0],
-				path:        requestLine[1],
-				httpVersion: requestLine[2],
-				headers:     headers,
-				body:        body,
-			}
-
-			switch req.method {
-			case "GET":
-				responseHeader, responseBody, err = handleGET(req, dirName)
+			for {
+				requestLine, headers, body, err := parseHTTPRequest(reader)
 				if err != nil {
-					fmt.Println(err.Error())
-					os.Exit(1)
+					fmt.Println("Error parsing the http request: ", err)
+					return
 				}
-			case "POST":
-				responseHeader, err = handlePOST(req, dirName)
-				if err != nil {
-					fmt.Println(err.Error())
-					os.Exit(1)
+
+				if len(requestLine) < 3 {
+					fmt.Println("Malformed request line")
+					return
 				}
-			}
 
-			_, err = conn.Write([]byte(responseHeader))
-			if err != nil {
-				fmt.Println(err.Error())
-				os.Exit(1)
-			}
+				req := Request{
+					method:      requestLine[0],
+					path:        requestLine[1],
+					httpVersion: requestLine[2],
+					headers:     headers,
+					body:        body,
+				}
 
-			if len(responseBody) > 0 {
-				_, err := conn.Write(responseBody)
+				var (
+					responseHeader string
+					responseBody   []byte
+				)
+
+				switch req.method {
+				case "GET":
+					responseHeader, responseBody, err = handleGET(req, dirName)
+					if err != nil {
+						fmt.Println("GET handler error:", err)
+						return
+					}
+				case "POST":
+					responseHeader, err = handlePOST(req, dirName)
+					if err != nil {
+						fmt.Println("POST handler error:", err)
+						return
+					}
+				default:
+					fmt.Println("Unsupported method:", req.method)
+					return
+				}
+
+				// Write headers
+				_, err = conn.Write([]byte(responseHeader))
 				if err != nil {
-					fmt.Println(err.Error())
-					os.Exit(1)
+					fmt.Println("Error writing header:", err)
+					return
+				}
+
+				// Write body if present
+				if len(responseBody) > 0 {
+					_, err := conn.Write(responseBody)
+					if err != nil {
+						fmt.Println("Error writing body:", err)
+						return
+					}
 				}
 			}
 		}(conn)
